@@ -1,0 +1,181 @@
+---
+title: "Statistical inference with the GSS data"
+output:
+  html_document:
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+  pdf_document: default
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+* * *
+
+## Part 1: Data
+
+The General Social Survey (GSS) is a sociological survey used to collect information and keep a historical record of the concerns, experiences, attitudes, and practices of residents of the United States.
+
+The General Social Survey has three main purposes:
+
+*	Gather data to monitor and explain trends, changes, and constants in attitudes, behaviors, and attributes as well as examine the structure, development, and functioning of society in general as well as the role of various sub-groups.
+*	Compare the United States to other societies to place American society in comparative perspective and develop cross-national models of human society.
+*	Make current, valuable, high-quality data readily available to scholars, students, policymakers, and others with minimal cost and waiting.
+
+
+**Sampling Method**
+
+The target population of the GSS is adults (18+) living in households in the United States. The GSS sample is drawn using an area probability design that randomly selects respondents in households across the United States to take part in the survey. Respondents that become part of the GSS sample are from a mix of urban, suburban, and rural geographic areas.
+
+The survey is conducted face-to-face with an in-person interview by National Opinion Research Center (NORC) at the University of Chicago. The survey was conducted every year from 1972 to 1994 (except in 1979, 1981, and 1992). Since 1994, it has been conducted every other year. As of 2014, 30 national samples with 59,599 respondents and 5,900+ variables have been collected.
+
+Based on above, the data can be generalized to the US adult population (18+) that resides households in the United States. Since random assigment was not used, there is no causality in this study. And it allows researchers to explore the association between variables in the General Social Survey and human longevity.
+
+* * *
+
+## Part 2: Research question
+
+Suicide have been linked to a variety of structural factors such as gender roles, ethnicity, political conservatism, and ties to societal institutions. Financial satisfaction or dissatisfaction is taken as a measure of strain. To the extent that persons report satisfaction with their income, it is assumed that their financial accomplishments are consistent with their financial aspirations. Herein, it is assumed that persons under financial stress would, as a group, be more inclined to hold favorable definitions of deviant behavior including suicide.
+
+Our most important question here is "is there any association between financial satisfaction `satfin` and that person idea of committing suicide if he/she is tired of living`suicide4`?"
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+Since we have hundreds of column names, using `names(gss)` was not helpful and we know that the variables are called `satfin`, and `suicide4` so that is how we should be referring to them and subset the dataset using these variables of interest.
+
+```{r}
+gss %>% 
+  select(satfin, suicide4) %>% 
+  str()
+```
+
+These are all categorical data which are recorded as factors. A simple way of tabulating these data to see how many times each level of health status is, to use the `group_by()` function along with the `summarise()` command:
+
+```{r}
+gss %>% 
+  group_by(satfin) %>% 
+  summarise(count = n())
+```
+
+As the summary shows `satfin` has three levels; `Satisfied`, `More Or Less`, and `Not At All Sat`. It has `NA` values (which means the information for this question is not available).
+
+```{r}
+gss %>% 
+  group_by(suicide4) %>% 
+  summarise(count = n())
+```
+
+As we can see in the summary, `suicide4` has two levels; `Yes`, `No`, which means whether people think a person has the right to end his or her own life if this person is tired of living or ready to die. This variable has `NA` values too (which means the information for this question is not available) and we will just omit them from our consideration for this project.
+
+
+```{r}
+var_tab <- table(gss$suicide4,gss$satfin)
+
+var_tab
+```
+
+As the contingency table shows, the observations segregated into two groups based on people response to `suicide4` question. As we can see the overall number of individuals who answered as `No` to `suicide4` question is more than people, who answered `Yes` to this question (24,629 `No` to 4,579 `Yes`) regardless of what are they financial satisfaction.
+
+
+```{r}
+mosaicplot(table(gss$suicide4, gss$satfin),xlab = "Right to commit suicide",ylab = "Financial Satisfaction", main = NULL)
+```
+
+
+```{r}
+barplot(table(gss$suicide4, gss$satfin),xlab = "Financial Satisfaction", ylab = "Frequency",legend = c("Yes", "No"), 
+args.legend = list(title = "Right to commit suicide", x = "topright", cex = 0.8))
+
+```
+
+As the plots depict, there's no association between financial satisfaction and their opinion about committing suicide. Regardless of people's financial satisfaction, more individuals believe even if the person is tired of living and ready to die, he or she does not have right to end his or her life, regardless of their financial satisfaction. We look more into this in the following part of the project too.
+
+* * *
+
+## Part 4: Inference
+
+Since we have two categorical variable which at least one of them has more than two levels, we will use **Chi-square independence test** to see if two variables `suicide4` and `satfin` are independent or not. So, the question here will be "Is people opinion about committing suicide, and their satisfaction with the financial situation, independent" or "People opinion about committing suicide do not vary by their financial satisfaction".
+
+However, before getting to the chi-square test, assuming the data follow the normal distribution, we want to know is there any difference between the proportions of the people who answered `Yes` to `suicide4` question and the people who answered `No` to this question, each within their financial satisfaction group. So, we will apply `prop.test` to compute the difference;
+
+H0: The proportion of cases is the same in each age group
+Ha: The proportion of cases is not the same in each age group: at least one pi is different from the others
+
+
+```{r}
+prop.test(table(gss$satfin, gss$suicide4),correct = FALSE,
+          alternative ="two.sided", conf.level = 0.95)
+
+```
+
+Since the p-value (0.0001751) is less than 0.05, we reject the null hypothesis and conclude that the proportion of cases is not the same in each group.
+
+**Chi-sqaure Hypothesis statement**
+
+H0: In the population, people opinion about committing suicide and their financial satisfaction are independent
+HA: In the population, people opinion about committing suicide and their financial satisfaction are dependent
+
+
+**Checking Conditions**
+
+1-	Independence: the data is collected by random sample without replacement, it is evident that the total number of cases (57061) are much less than 10% of the whole population (America's population is about 300 million people). Moreover, each observation only contributes to one cell of the table. So, we can reasonably suppose the answers are independent.
+
+2-	Sample size: from the summary statistics, we see that each scenario (i.e. cell) is larger than 5. (`1407`, `1843`, `1317`, `7148`, `10719`, and `6676` respectively). So, the sample size condition is also met.
+
+
+**Why Chi-square independence test**
+
+This approach is appropriate because the sampling method was simple random sampling, the variables under study were categorical, and the expected frequency count was at least 5 in each cell of the contingency table. Since we are conducting **Chi-square independence test**, there is only hypothesis test but no confidence interval.
+
+
+```{r}
+inference(y = suicide4, x = satfin, data = gss, statistic = "proportion", type = "ht", null = NULL, alternative = "greater", sig_level = 0.05, method = "theoretical")
+```
+
+The proportion of people who think a person has the right to end his/her own life is about (4567/29110) 0.15, while the percentage of individuals who believe a person has NOT the right to end his/her life is about %85.
+
+In case we are worried about the chi-squared approximation to the sampling distribution of the statistic, we can use simulation to compute an approximate p-value;
+
+```{r}
+chisq.test(var_tab,simulate.p.value = TRUE, B = 10000)
+
+```
+
+In our case, the simulated p-values agree with the chi-squared approximation, suggesting that the chi-squared approximation is good in this research question.
+
+As the results show, the p-value is less than the chosen significance level (%5), so we reject the null hypothesis; the sample population provides enough evidence to suggest that people's opinion about having the right to commit a suicide and their financial satisfaction are dependent. In other words, it provides strong evidence to suggest that people with different financial satisfaction tend to have a different opinion about having the right to committing suicide.
+
+**Note** Support for the alternative hypothesis suggests that the variables are related; but the relationship is not necessarily causal, in the sense that one variable "causes" the other.
+
+Since we used chi-square test of independence to test dependency of variables, confidence interval method (ci) is not applicable, and we only used the hypothesis test (ht) method.
+
+## Conclusion
+
+In this project, we conducted statistic inference on two categorical variables `satfin` and `suicide4` in the General Social Survey (GSS) data set. We conducted a chi-square test of independence of the two variables. We obtained a p-value (2e-04) which was less than the significance level (5%), and we rejected the null hypothesis and concluded that the data provides strong evidence to suggest that people with different financial satisfaction tend to have a different opinion about having the right to committing suicide.
+
+For future study, we are interested in exploiting the relationship (if there is) between `satfin` and `suicide4`. Because there may exist the probability that people's opinion about having the right to commit suicide and end their life, be impacted by their financial situation. Moreover, there could be other variables such as socio-economic status, education, and religious preference that may affect the person's opinion about committing suicide as well.
+
+## References
+
+Muennig, Peter, 2011. The general social survey-national death index: an innovative new dataset for the social sciences. BMC Research Notes. 4 (385): 1-4. doi:10.1186/1756-0500-4-385
+
+Stack. S., Cao. L., 1998. The effect of financial satisfaction on female suicide attitudes in China. OMEGA-Journal of Death and Dying. 36 (2): 161-167
